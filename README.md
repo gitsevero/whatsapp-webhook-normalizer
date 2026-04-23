@@ -104,7 +104,7 @@ Saída esperada:
 ```
 [applied] 001_init.sql
 [applied] 002_dead_letters_drop_fk.sql
-[applied] 003_seed_fake_provider.sql
+[applied] 004_drop_providers_table.sql
 
 Done. 3 migration(s) applied.
 ```
@@ -170,12 +170,12 @@ Managed (zero infra) e alinhado com o stack Supabase-native da empresa. `pg` cru
 
 Guia completo em [docs/adding-a-provider.md](docs/adding-a-provider.md). Resumo:
 
-**2 arquivos novos, zero alterados** — o `src/adapters/index.ts` faz auto-discovery de qualquer `*.adapter.ts` na pasta:
+**1 arquivo novo, zero alterados** — o `src/adapters/index.ts` faz auto-discovery de qualquer `*.adapter.ts` na pasta:
 
-1. **Novo adapter** em [src/adapters/<nome>.adapter.ts](src/adapters/) — implementa `ProviderAdapter` (~20 linhas; ver [src/adapters/fake.adapter.ts](src/adapters/fake.adapter.ts) como referência).
-2. **Novo seed** em [db/migrations/NNN_seed_<nome>.sql](db/migrations/) — `INSERT INTO providers`.
+1. Criar [src/adapters/<nome>.adapter.ts](src/adapters/) — implementa `ProviderAdapter` (~20 linhas; ver [src/adapters/fake.adapter.ts](src/adapters/fake.adapter.ts) como referência)
+2. Reiniciar o servidor
 
-**Zero arquivos existentes tocados.** A rota `/webhooks/<nome>` já existe (é parametrizada), o registry pega o adapter em O(1), e o boot descobre o novo arquivo automaticamente.
+**Zero arquivos existentes tocados, zero migration.** A rota `/webhooks/<nome>` já existe (é parametrizada), o registry pega o adapter em O(1), e o boot descobre o novo arquivo automaticamente. `messages.provider_id` é `TEXT` sem FK — o registry valida a existência do adapter em runtime (rota com adapter não cadastrado → 404 `UnknownProviderError` + entrada em `dead_letters`).
 
 ---
 

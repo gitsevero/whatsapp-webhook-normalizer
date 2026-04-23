@@ -2,7 +2,7 @@
 
 Esta implementação usa **Strategy + Registry com auto-discovery** (ver [decisions.md — ADR-001](decisions.md#adr-001--pattern-de-normalização-strategy--registry)). O carregamento de adapters acontece no boot via varredura de filesystem: qualquer arquivo `*.adapter.ts` em `src/adapters/` é detectado, validado estruturalmente e registrado automaticamente.
 
-**Consequência:** adicionar um provedor exige **dois arquivos novos** e **zero alterações** em arquivos existentes. O `docs/adding-a-provider.md` (este arquivo), o `src/adapters/index.ts`, `src/core/registry.ts`, `src/http/server.ts` — nenhum deles é tocado.
+**Consequência:** adicionar um provedor exige **um arquivo novo** e **zero alterações** em arquivos existentes. Nenhuma migration de banco, nenhum seed, nada. Apenas o arquivo do adapter.
 
 O adapter de demonstração [src/adapters/fake.adapter.ts](../src/adapters/fake.adapter.ts) serve como referência viva (≤30 linhas).
 
@@ -66,25 +66,13 @@ export const twilioAdapter: ProviderAdapter = {
 - Nome do arquivo termina com `.adapter.ts`
 - Exporta um objeto com shape `ProviderAdapter` (`id: string` + `normalize(payload: unknown)`)
 
-### 2. Cadastre o provedor no banco
-
-[db/migrations/004_seed_twilio.sql](../db/migrations/004_seed_twilio.sql) *(não existe — é o exemplo)*
-
-```sql
-INSERT INTO providers (id, name) VALUES
-  ('twilio', 'Twilio WhatsApp API')
-ON CONFLICT (id) DO NOTHING;
-```
-
-Rode:
+### 2. Reinicie o servidor — pronto
 
 ```bash
-npm run migrate
-```
+npm run dev
+# startup log já mostra o novo adapter:
+# {"message":"server started","adapters":["evolution","fake","meta","twilio","zapi"],...}
 
-### Pronto — a rota já existe
-
-```bash
 curl -X POST http://localhost:3000/webhooks/twilio \
   -H "Content-Type: application/json" \
   -d '{"MessageSid":"SM123","From":"whatsapp:+5511988888888","Body":"hello","DateSent":"2024-01-15T10:30:00Z"}'
@@ -92,10 +80,7 @@ curl -X POST http://localhost:3000/webhooks/twilio \
 # → {"ok":true,"externalMessageId":"SM123"}
 ```
 
-No startup log do próximo boot, você vê o adapter registrado:
-```json
-{"message":"server started","adapters":["meta","evolution","zapi","fake","twilio"],...}
-```
+Nenhuma migration. Nenhum seed. O `messages.provider_id` é `TEXT` sem FK — proteção contra typos vem do `AdapterRegistry` em runtime (rota `/webhooks/xyz` com adapter não registrado → 404 `UnknownProviderError`, que sai limpo sem sujar a tabela de mensagens).
 
 ---
 
@@ -116,8 +101,9 @@ Provando Open/Closed literalmente:
 | `src/security/*` | ❌ |
 | Outros adapters | ❌ |
 | Schema de `messages` e `dead_letters` | ❌ |
+| Nenhuma migration de banco | ❌ |
 
-**Zero arquivos existentes tocados.** Somente dois arquivos **novos** (adapter + migration).
+**Zero arquivos existentes tocados. Zero SQL escrito.** Somente **um** arquivo novo: o adapter.
 
 ---
 

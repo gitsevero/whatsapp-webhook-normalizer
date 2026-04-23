@@ -23,7 +23,7 @@ Registro curto das decisões técnicas que moldaram o projeto. Cada entrada segu
 
 1. **A URL já carrega o provider ID.** Todo provedor exige que uma URL única seja registrada no dashboard dele — então `:provider` na rota é metadata gratuita e confiável. Ignorar isso para detectar via payload seria jogar fora informação que o transporte entrega.
 2. **O(1) e sem ambiguidade.** Lookup por `Map.get` é determinístico. Chain of Responsibility introduz ordem e risco de dois adapters aceitarem o mesmo payload.
-3. **Open/Closed literal.** Adicionar provedor = **criar dois arquivos novos** (`*.adapter.ts` + migration SQL). O `src/adapters/index.ts` varre a pasta no boot e registra automaticamente qualquer arquivo que bate `*.adapter.ts` e exporta um objeto com shape `ProviderAdapter`. Nenhum arquivo existente é tocado.
+3. **Open/Closed literal.** Adicionar provedor = **criar um arquivo novo** (`*.adapter.ts`). O `src/adapters/index.ts` varre a pasta no boot e registra automaticamente qualquer arquivo que bate `*.adapter.ts` e exporta um objeto com shape `ProviderAdapter`. Nenhum arquivo existente é tocado, nenhuma migration de banco é necessária (ver ADR sobre schema simplificado, abaixo).
 4. **Type safety plena.** Cada adapter tem seu schema zod, e `normalize` recebe o tipo inferido. Chain perderia parte disso até a detecção resolver.
 5. **Testabilidade.** Cada adapter vira função pura `payload → NormalizedMessage` — teste unitário de 3 linhas, sem mock de ordem de chain.
 
@@ -81,6 +81,31 @@ Registro curto das decisões técnicas que moldaram o projeto. Cada entrada segu
 4. **Não bloqueia evolução.** Se o projeto seguir adiante, migrar de Node local para Edge Functions é incremental — o schema e migrations já estão no Supabase.
 
 **Nota sobre Edge Functions.** Documentado no README como alternativa viável, com o caminho de adaptação esboçado (trocar Express por Hono, usar Deno postgres client, preservar `rawBody` via `request.text()`). Não implementado nesta versão.
+
+---
+
+## ADR-005 — Schema sem tabela `providers`
+
+**Contexto.** Primeira versão do schema tinha uma tabela `providers` (id, name, created_at) com FK `messages.provider_id → providers(id)`. Design "manual de banco 101" — normalização 3NF, referential integrity, espaço pra metadata futura. Mas cada provedor novo exigia uma migration de seed (`INSERT INTO providers`) só para satisfazer a FK, o que **contradizia** o requisito 1.4 do teste ("adicionar provedor novo sem alterar código existente"). Auto-discovery de adapters resolvia o lado do código, mas o lado do DB continuava burocrático.
+
+**Opções consideradas.**
+
+| Opção | Extensibilidade | Integridade |
+| --- | --- | --- |
+| Manter tabela + migration por provedor | Atrito real | FK rígida |
+| Manter tabela + auto-seed em `save()` | Zero atrito | FK rígida |
+| **Remover tabela** ⭐ | Zero atrito | Validação em runtime via registry |
+
+**Escolha.** Remover a tabela. `messages.provider_id` vira `TEXT NOT NULL` sem FK (migration 004).
+
+**Motivo.**
+
+1. **O enunciado não pede tabela `providers`.** A seção 2.1 pede "schema simples para armazenar as mensagens normalizadas". Uma tabela auxiliar para 3-10 provedores cujos IDs são literais no código é normalização acadêmica sem ganho real.
+2. **Pragmatismo (critério seção 9).** "A solução é implementável ou é over-engineering?" Tabela `providers` com seed manual para cada entrada é exatamente o tipo de cerimônia que o critério visa penalizar.
+3. **Proteção contra typos já existe em runtime.** `AdapterRegistry.get(id)` lança `UnknownProviderError` (→ 404 + dead_letter) para qualquer ID não registrado. FK seria validação duplicada.
+4. **YAGNI para metadata.** "E se um dia precisarmos de `enabled`, `display_name`, `rate_limit` por provedor?" — cria a tabela naquele dia. Hoje, a adição de metadados via tabela nova é adição pura (não altera `messages`).
+
+**Consequência narrativa.** "Adicionar provedor novo = 1 arquivo" se torna literal. Sem migration, sem seed, sem JOIN, sem nada. Fecha o requisito 1.4 do teste com elegância.
 
 ---
 

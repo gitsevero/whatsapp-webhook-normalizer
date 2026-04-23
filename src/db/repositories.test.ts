@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, afterAll } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { messageRepository, deadLetterRepository } from './repositories';
 import { pool } from './client';
@@ -25,13 +25,6 @@ function makeMessage(overrides: Partial<NormalizedMessage> = {}): NormalizedMess
 }
 
 describeDb('messageRepository (integration)', () => {
-  beforeAll(async () => {
-    // Garante que o provider 'meta' existe (pré-seed via migration 001)
-    await pool.query(
-      `INSERT INTO providers (id, name) VALUES ('meta', 'Meta Cloud API') ON CONFLICT DO NOTHING`,
-    );
-  });
-
   afterAll(async () => {
     // Limpa mensagens de teste
     await pool.query(`DELETE FROM messages WHERE external_id LIKE $1`, [
