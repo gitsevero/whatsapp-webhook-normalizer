@@ -17,6 +17,7 @@ import {
 } from '../db/repositories';
 import { logger } from '../observability/logger';
 import { verifyProviderSignature } from '../security';
+import { classifyIntent, isLlmEnabled } from '../llm/classifier';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -91,6 +92,30 @@ app.post('/webhooks/:provider', verifyProviderSignature, async (req, res) => {
     ok: true,
     externalMessageId: message.externalMessageId,
   });
+
+  // Fire-and-forget: classificação de intenção não bloqueia a resposta ao
+  // provedor e falhas não quebram a ingestão.
+  void classifyIntent(message.text)
+    .then(async (intent) => {
+      if (!intent) return;
+      await messageRepository.updateIntent(
+        message.providerId,
+        message.externalMessageId,
+        intent,
+      );
+      logger.info('intent classified', {
+        requestId: req.requestId,
+        providerId: message.providerId,
+        externalMessageId: message.externalMessageId,
+        intent,
+      });
+    })
+    .catch((err) =>
+      logger.warn('intent update failed', {
+        requestId: req.requestId,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
 });
 
 function mapErrorToStatus(err: Error): number {
@@ -139,6 +164,7 @@ const port = Number(process.env.PORT ?? 3000);
 app.listen(port, () => {
   logger.info('server started', {
     port,
-    adapters: ['meta', 'evolution', 'zapi'],
+    adapters: ['meta', 'evolution', 'zapi', 'fake'],
+    llm: isLlmEnabled() ? 'enabled' : 'disabled (OPENAI_API_KEY not set)',
   });
 });
