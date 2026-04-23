@@ -1,7 +1,13 @@
+# Contexto local / planejamento (não vai para o repo público)
 CLAUDE.md
 TASKS.md
 .claude
 teste.md
-teste2_vibe_code.md
+
+# Segredos
 .env
-docs
+
+# Node
+node_modules
+dist
+*.log
