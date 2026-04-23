@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { metaAdapter } from './meta';
+import { metaAdapter } from './meta.adapter';
 import { MalformedWebhookError } from '../core/errors';
 
 // Payload da seção 5 do teste.md

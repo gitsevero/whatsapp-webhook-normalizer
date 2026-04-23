@@ -1,14 +1,16 @@
 # Como adicionar um novo provedor
 
-Esta implementação usa o pattern **Strategy + Registry** (ver [decisions.md — ADR-001](decisions.md#adr-001--pattern-de-normalização-strategy--registry)). O registro de adapters vive em [src/adapters/index.ts](../src/adapters/index.ts) — esse é o único arquivo "do core" que cresce quando um provedor novo entra.
+Esta implementação usa **Strategy + Registry com auto-discovery** (ver [decisions.md — ADR-001](decisions.md#adr-001--pattern-de-normalização-strategy--registry)). O carregamento de adapters acontece no boot via varredura de filesystem: qualquer arquivo `*.adapter.ts` em `src/adapters/` é detectado, validado estruturalmente e registrado automaticamente.
 
-O adapter de demonstração [src/adapters/fake.ts](../src/adapters/fake.ts) serve como referência viva (≤30 linhas).
+**Consequência:** adicionar um provedor exige **dois arquivos novos** e **zero alterações** em arquivos existentes. O `docs/adding-a-provider.md` (este arquivo), o `src/adapters/index.ts`, `src/core/registry.ts`, `src/http/server.ts` — nenhum deles é tocado.
+
+O adapter de demonstração [src/adapters/fake.adapter.ts](../src/adapters/fake.adapter.ts) serve como referência viva (≤30 linhas).
 
 ---
 
 ## Passo a passo
 
-Suponha que você quer integrar um provedor fictício chamado **Twilio WhatsApp**. O payload que ele manda nos webhooks é (exemplo):
+Suponha que você quer integrar um provedor fictício chamado **Twilio WhatsApp**. O payload que ele manda é (exemplo):
 
 ```json
 {
@@ -22,7 +24,7 @@ Suponha que você quer integrar um provedor fictício chamado **Twilio WhatsApp*
 
 ### 1. Crie o arquivo do adapter
 
-[src/adapters/twilio.ts](../src/adapters/twilio.ts) *(não existe — é o exemplo)*
+[src/adapters/twilio.adapter.ts](../src/adapters/twilio.adapter.ts) *(não existe — é o exemplo)*
 
 ```ts
 import { z } from 'zod';
@@ -60,22 +62,11 @@ export const twilioAdapter: ProviderAdapter = {
 };
 ```
 
-### 2. Registre no ponto único
+**Requisitos para ser detectado automaticamente:**
+- Nome do arquivo termina com `.adapter.ts`
+- Exporta um objeto com shape `ProviderAdapter` (`id: string` + `normalize(payload: unknown)`)
 
-[src/adapters/index.ts](../src/adapters/index.ts) — **2 linhas adicionais**:
-
-```diff
-  import { fakeAdapter } from './fake';
-+ import { twilioAdapter } from './twilio';
-
-  registry.register(metaAdapter);
-  registry.register(evolutionAdapter);
-  registry.register(zapiAdapter);
-  registry.register(fakeAdapter);
-+ registry.register(twilioAdapter);
-```
-
-### 3. Cadastre o provedor no banco
+### 2. Cadastre o provedor no banco
 
 [db/migrations/004_seed_twilio.sql](../db/migrations/004_seed_twilio.sql) *(não existe — é o exemplo)*
 
@@ -101,26 +92,44 @@ curl -X POST http://localhost:3000/webhooks/twilio \
 # → {"ok":true,"externalMessageId":"SM123"}
 ```
 
+No startup log do próximo boot, você vê o adapter registrado:
+```json
+{"message":"server started","adapters":["meta","evolution","zapi","fake","twilio"],...}
+```
+
 ---
 
 ## O que **não** precisou mudar
 
-Provando o princípio Open/Closed:
+Provando Open/Closed literalmente:
 
 | Arquivo | Tocado? |
 |---|---|
-| `src/core/types.ts` (tipo `NormalizedMessage`, interface `ProviderAdapter`) | ❌ |
-| `src/core/registry.ts` (lookup por ID) | ❌ |
-| `src/core/errors.ts` (erros tipados) | ❌ |
-| `src/http/server.ts` (HTTP layer, middleware, error handler) | ❌ |
-| `src/db/repositories.ts` (persistência) | ❌ |
-| `src/db/migrate.ts` (migration runner) | ❌ |
-| `src/observability/logger.ts` (logger) | ❌ |
-| `src/security/*` (HMAC da Meta e outros) | ❌ |
-| Outros adapters (`meta.ts`, `evolution.ts`, `zapi.ts`, `fake.ts`) | ❌ |
-| Schema `messages`, `dead_letters` | ❌ |
+| `src/adapters/index.ts` (auto-discovery) | ❌ |
+| `src/core/types.ts` | ❌ |
+| `src/core/registry.ts` | ❌ |
+| `src/core/errors.ts` | ❌ |
+| `src/http/server.ts` | ❌ |
+| `src/db/repositories.ts` | ❌ |
+| `src/db/migrate.ts` | ❌ |
+| `src/observability/logger.ts` | ❌ |
+| `src/security/*` | ❌ |
+| Outros adapters | ❌ |
+| Schema de `messages` e `dead_letters` | ❌ |
 
-Somente **3 arquivos** tocados — dois criados do zero (adapter + migration) e um editado com 2 linhas (registro).
+**Zero arquivos existentes tocados.** Somente dois arquivos **novos** (adapter + migration).
+
+---
+
+## Como o auto-discovery funciona
+
+[src/adapters/index.ts](../src/adapters/index.ts) roda no boot:
+
+1. Lê todos os arquivos de `src/adapters/` que batem `/\.adapter\.(ts|js)$/`
+2. Para cada arquivo, importa via `require()` e procura um export com shape `ProviderAdapter`
+3. Registra no `AdapterRegistry`
+
+Arquivos como `*.test.ts` ou `index.ts` não batem o padrão e são ignorados.
 
 ---
 
@@ -136,4 +145,4 @@ switch (req.params.provider) {
 }
 ```
 
-Continua sendo adição, não alteração das verificações existentes.
+Essa é a **única** alteração em arquivo existente necessária — e só se o provedor requer assinatura específica. Sem assinatura, o adapter sozinho já funciona.

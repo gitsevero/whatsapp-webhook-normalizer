@@ -13,6 +13,10 @@ export class AdapterRegistry {
     if (!adapter) throw new UnknownProviderError(providerId);
     return adapter;
   }
+
+  list(): string[] {
+    return Array.from(this.adapters.keys());
+  }
 }
 
 export const registry = new AdapterRegistry();

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { zapiAdapter } from './zapi';
+import { zapiAdapter } from './zapi.adapter';
 import { MalformedWebhookError } from '../core/errors';
 
 const validPayload = {

@@ -47,8 +47,8 @@ flowchart LR
 
 - **HTTP layer** ([src/http/server.ts](src/http/server.ts)) — Express com `rawBody` preservado; rota única parametrizada `POST /webhooks/:provider`; error handler global que mapeia erros tipados → status HTTP + dead_letters.
 - **Security** ([src/security/](src/security/)) — dispatcher por provedor; HMAC-SHA256 implementado para Meta; stub pronto para plugar outros.
-- **Adapter registry** ([src/core/registry.ts](src/core/registry.ts)) — `Map<providerId, ProviderAdapter>` com lookup O(1); `register()` / `get()`.
-- **Provider adapters** ([src/adapters/](src/adapters/)) — um arquivo por provedor; cada um autossuficiente (schema zod + `normalize`).
+- **Adapter registry** ([src/core/registry.ts](src/core/registry.ts)) — `Map<providerId, ProviderAdapter>` com lookup O(1); `register()` / `get()` / `list()`.
+- **Provider adapters** ([src/adapters/](src/adapters/)) — um arquivo `*.adapter.ts` por provedor; cada um autossuficiente (schema zod + `normalize`). **Auto-discovery**: [src/adapters/index.ts](src/adapters/index.ts) escaneia a pasta no boot e registra automaticamente.
 - **Normalized model** ([src/core/types.ts](src/core/types.ts)) — tipo único `NormalizedMessage`.
 - **Persistence** ([src/db/repositories.ts](src/db/repositories.ts)) — `pg` puro + SQL migrations; idempotência via `UNIQUE (provider_id, external_id)`.
 - **Observability** ([src/observability/logger.ts](src/observability/logger.ts)) — logger JSON estruturado (zero deps) com `requestId`, `providerId`, `externalMessageId`, `durationMs`, `status`.
@@ -170,13 +170,12 @@ Managed (zero infra) e alinhado com o stack Supabase-native da empresa. `pg` cru
 
 Guia completo em [docs/adding-a-provider.md](docs/adding-a-provider.md). Resumo:
 
-**3 arquivos tocados** para plugar um provedor novo:
+**2 arquivos novos, zero alterados** — o `src/adapters/index.ts` faz auto-discovery de qualquer `*.adapter.ts` na pasta:
 
-1. **Novo adapter** em [src/adapters/<nome>.ts](src/adapters/) — implementa `ProviderAdapter` (~20 linhas; ver [src/adapters/fake.ts](src/adapters/fake.ts) como referência).
+1. **Novo adapter** em [src/adapters/<nome>.adapter.ts](src/adapters/) — implementa `ProviderAdapter` (~20 linhas; ver [src/adapters/fake.adapter.ts](src/adapters/fake.adapter.ts) como referência).
 2. **Novo seed** em [db/migrations/NNN_seed_<nome>.sql](db/migrations/) — `INSERT INTO providers`.
-3. **2 linhas** em [src/adapters/index.ts](src/adapters/index.ts) — `import` + `registry.register`.
 
-**Zero arquivos do core alterados.** A rota `/webhooks/<nome>` já existe (é parametrizada); o registry pega o adapter em O(1).
+**Zero arquivos existentes tocados.** A rota `/webhooks/<nome>` já existe (é parametrizada), o registry pega o adapter em O(1), e o boot descobre o novo arquivo automaticamente.
 
 ---
 

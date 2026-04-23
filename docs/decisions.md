@@ -17,15 +17,17 @@ Registro curto das decisões técnicas que moldaram o projeto. Cada entrada segu
 | Factory Method | Factory constrói adapter baseado em input | Redundante com Registry (mesma semântica, nome diferente) |
 | Adapter (GoF clássico) | Adapta interface *pré-existente* a outra | Não aplicável — estamos escrevendo normalizadores do zero, não encaixando classes legadas |
 
-**Escolha.** Strategy + Registry. No domínio de integrações, o arquivo por provedor é tradicionalmente chamado de "adapter" mesmo sendo mecanicamente um Strategy — essa nomenclatura está mantida (`src/adapters/*.ts`) por clareza semântica, mas a justificativa técnica cita Strategy para evitar confusão com o Adapter GoF.
+**Escolha.** Strategy + Registry **com auto-discovery de adapters**. No domínio de integrações, o arquivo por provedor é tradicionalmente chamado de "adapter" mesmo sendo mecanicamente um Strategy — essa nomenclatura está mantida (`src/adapters/*.adapter.ts`) por clareza semântica, mas a justificativa técnica cita Strategy para evitar confusão com o Adapter GoF.
 
 **Motivo.**
 
 1. **A URL já carrega o provider ID.** Todo provedor exige que uma URL única seja registrada no dashboard dele — então `:provider` na rota é metadata gratuita e confiável. Ignorar isso para detectar via payload seria jogar fora informação que o transporte entrega.
 2. **O(1) e sem ambiguidade.** Lookup por `Map.get` é determinístico. Chain of Responsibility introduz ordem e risco de dois adapters aceitarem o mesmo payload.
-3. **Open/Closed.** Adicionar provedor = criar arquivo + uma linha em `src/adapters/index.ts` (que existe *justamente* como ponto de extensão). Nenhum core é alterado.
+3. **Open/Closed literal.** Adicionar provedor = **criar dois arquivos novos** (`*.adapter.ts` + migration SQL). O `src/adapters/index.ts` varre a pasta no boot e registra automaticamente qualquer arquivo que bate `*.adapter.ts` e exporta um objeto com shape `ProviderAdapter`. Nenhum arquivo existente é tocado.
 4. **Type safety plena.** Cada adapter tem seu schema zod, e `normalize` recebe o tipo inferido. Chain perderia parte disso até a detecção resolver.
 5. **Testabilidade.** Cada adapter vira função pura `payload → NormalizedMessage` — teste unitário de 3 linhas, sem mock de ordem de chain.
+
+**Trade-off do auto-discovery.** Erros de registro (export com shape errado) são descobertos em boot, não em compile. Esse risco é mitigado pela combinação de: tipo `ProviderAdapter` forte, type guard `isProviderAdapter` em `src/adapters/index.ts` rejeitando exports malformados, e zod validando o payload em runtime de qualquer jeito.
 
 **Quando Chain of Responsibility ganharia.** Apenas se houvesse **uma única rota** (`/webhook`) e fosse necessário detectar o provedor pela forma do payload. Não é esse o caso: os três payloads de exemplo do enunciado são estruturalmente distintos e a URL parametrizada já resolve o despacho.
 

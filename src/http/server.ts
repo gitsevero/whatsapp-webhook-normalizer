@@ -164,7 +164,7 @@ const port = Number(process.env.PORT ?? 3000);
 app.listen(port, () => {
   logger.info('server started', {
     port,
-    adapters: ['meta', 'evolution', 'zapi', 'fake'],
+    adapters: registry.list(),
     llm: isLlmEnabled() ? 'enabled' : 'disabled (OPENAI_API_KEY not set)',
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { evolutionAdapter } from './evolution';
+import { evolutionAdapter } from './evolution.adapter';
 import { MalformedWebhookError } from '../core/errors';
 
 const validPayload = {
