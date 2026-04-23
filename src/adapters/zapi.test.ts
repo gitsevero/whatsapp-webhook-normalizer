@@ -18,7 +18,7 @@ const validPayload = {
 };
 
 describe('zapiAdapter', () => {
-  it('normaliza o payload de exemplo do teste.md', () => {
+  it('normaliza o payload oficial da Z-API', () => {
     const result = zapiAdapter.normalize(validPayload);
 
     expect(result.providerId).toBe('zapi');

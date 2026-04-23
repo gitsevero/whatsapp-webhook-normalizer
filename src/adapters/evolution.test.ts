@@ -22,7 +22,7 @@ const validPayload = {
 };
 
 describe('evolutionAdapter', () => {
-  it('normaliza o payload de exemplo do teste.md', () => {
+  it('normaliza o payload oficial da Evolution API', () => {
     const result = evolutionAdapter.normalize(validPayload);
 
     expect(result.providerId).toBe('evolution');

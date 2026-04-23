@@ -61,7 +61,7 @@ Registro curto das decisões técnicas que moldaram o projeto. Cada entrada segu
 
 ## ADR-004 — Banco: Supabase Postgres (managed), consumido via `pg` puro
 
-**Contexto.** O enunciado (seção 4) sugere Supabase Edge Functions como deploy, com nota "fique à vontade para outra plataforma". Uma segunda prova técnica da **mesma empresa** ([teste2_vibe_code.md](../teste2_vibe_code.md)) **exige** Supabase Edge + Supabase Postgres + Supabase Auth + RLS — revelando que o stack em produção é Supabase-native. Precisamos escolher entre: (A) Postgres local via Docker, (B) Supabase apenas como Postgres managed, (C) Supabase Edge Functions full.
+**Contexto.** O enunciado sugere Supabase Edge Functions como deploy, com nota "fique à vontade para outra plataforma". Indícios adicionais sobre o stack em produção da empresa (Supabase-native: Edge Functions + Postgres + Auth + RLS) reforçam o valor de alinhamento. Precisamos escolher entre: (A) Postgres local via Docker, (B) Supabase apenas como Postgres managed, (C) Supabase Edge Functions full.
 
 **Opções consideradas.**
 

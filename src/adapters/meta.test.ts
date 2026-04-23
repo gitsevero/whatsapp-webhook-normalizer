@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { metaAdapter } from './meta.adapter';
 import { MalformedWebhookError } from '../core/errors';
 
-// Payload da seção 5 do teste.md
+// Payload oficial de referência (Meta Cloud API)
 const validPayload = {
   object: 'whatsapp_business_account',
   entry: [
@@ -42,7 +42,7 @@ const validPayload = {
 };
 
 describe('metaAdapter', () => {
-  it('normaliza o payload de exemplo do teste.md', () => {
+  it('normaliza o payload oficial da Meta Cloud API', () => {
     const result = metaAdapter.normalize(validPayload);
 
     expect(result.providerId).toBe('meta');
