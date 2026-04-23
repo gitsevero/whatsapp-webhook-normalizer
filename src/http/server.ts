@@ -16,6 +16,7 @@ import {
   deadLetterRepository,
 } from '../db/repositories';
 import { logger } from '../observability/logger';
+import { verifyProviderSignature } from '../security';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -44,8 +45,35 @@ app.use((req, _res, next) => {
   next();
 });
 
-app.post('/webhooks/:provider', async (req, res) => {
-  const { provider } = req.params;
+app.get('/webhooks/meta', (req, res) => {
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+
+  const expected = process.env.META_VERIFY_TOKEN;
+  if (
+    mode === 'subscribe' &&
+    expected &&
+    token === expected &&
+    typeof challenge === 'string'
+  ) {
+    res.status(200).type('text/plain').send(challenge);
+    return;
+  }
+
+  logger.warn('meta verify_token mismatch', {
+    requestId: req.requestId,
+    mode: typeof mode === 'string' ? mode : null,
+  });
+  res.status(403).json({ ok: false, error: 'verify_token mismatch' });
+});
+
+app.post('/webhooks/:provider', verifyProviderSignature, async (req, res) => {
+  const provider = req.params.provider;
+  if (typeof provider !== 'string') {
+    res.status(400).json({ ok: false, error: 'invalid provider param' });
+    return;
+  }
 
   const adapter = registry.get(provider);
   const message = adapter.normalize(req.body);
