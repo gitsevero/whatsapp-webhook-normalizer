@@ -1,0 +1,158 @@
+{
+  "info": {
+    "name": "WhatsApp Webhook Normalizer",
+    "description": "Prova técnica — sistema de normalização de webhooks WhatsApp (Meta / Evolution / Z-API). Importe e rode contra http://localhost:3000.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000", "type": "string" },
+    { "key": "metaAppSecret", "value": "test_hmac_secret", "type": "string" },
+    { "key": "metaVerifyToken", "value": "test_verify_token", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Meta — GET verify-token (success)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/webhooks/meta?hub.mode=subscribe&hub.verify_token={{metaVerifyToken}}&hub.challenge=CHALLENGE123",
+          "host": ["{{baseUrl}}"],
+          "path": ["webhooks", "meta"],
+          "query": [
+            { "key": "hub.mode", "value": "subscribe" },
+            { "key": "hub.verify_token", "value": "{{metaVerifyToken}}" },
+            { "key": "hub.challenge", "value": "CHALLENGE123" }
+          ]
+        },
+        "description": "Handshake inicial da Meta. Retorna `CHALLENGE123` como texto puro (200) se META_VERIFY_TOKEN bate."
+      }
+    },
+    {
+      "name": "Meta — GET verify-token (fail)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/webhooks/meta?hub.mode=subscribe&hub.verify_token=wrong&hub.challenge=CHALLENGE123",
+          "host": ["{{baseUrl}}"],
+          "path": ["webhooks", "meta"],
+          "query": [
+            { "key": "hub.mode", "value": "subscribe" },
+            { "key": "hub.verify_token", "value": "wrong" },
+            { "key": "hub.challenge", "value": "CHALLENGE123" }
+          ]
+        },
+        "description": "Token errado → 403."
+      }
+    },
+    {
+      "name": "Meta — POST webhook (HMAC computed automaticamente)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Computa HMAC-SHA256 do body e injeta no header X-Hub-Signature-256.",
+              "const secret = pm.collectionVariables.get('metaAppSecret');",
+              "const body = pm.request.body.raw;",
+              "const sig = CryptoJS.HmacSHA256(body, secret).toString(CryptoJS.enc.Hex);",
+              "pm.request.headers.upsert({ key: 'X-Hub-Signature-256', value: 'sha256=' + sig });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/webhooks/meta",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"entry\":[{\"changes\":[{\"value\":{\"metadata\":{\"display_phone_number\":\"5511999999999\",\"phone_number_id\":\"PID\"},\"contacts\":[{\"profile\":{\"name\":\"João Silva\"},\"wa_id\":\"5511988888888\"}],\"messages\":[{\"from\":\"5511988888888\",\"id\":\"wamid.postman-meta-01\",\"timestamp\":\"1677234567\",\"type\":\"text\",\"text\":{\"body\":\"Olá, gostaria de saber o preço do plano premium\"}}]}}]}]}"
+        },
+        "description": "Payload Meta válido. Pre-request script calcula HMAC com metaAppSecret. Requer o mesmo valor em META_APP_SECRET no .env do servidor."
+      }
+    },
+    {
+      "name": "Meta — POST webhook (HMAC inválido → 401)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          {
+            "key": "X-Hub-Signature-256",
+            "value": "sha256=deadbeef0000000000000000000000000000000000000000000000000000dead"
+          }
+        ],
+        "url": "{{baseUrl}}/webhooks/meta",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"entry\":[{\"changes\":[{\"value\":{\"messages\":[{\"from\":\"551198\",\"id\":\"wamid.bad\",\"timestamp\":\"1677234567\",\"type\":\"text\",\"text\":{\"body\":\"x\"}}]}}]}]}"
+        },
+        "description": "Assinatura fabricada. Esperado: 401 + linha em dead_letters."
+      }
+    },
+    {
+      "name": "Evolution — POST webhook",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/webhooks/evolution",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"event\":\"messages.upsert\",\"instance\":\"minha-instancia\",\"data\":{\"key\":{\"remoteJid\":\"5511988888888@s.whatsapp.net\",\"fromMe\":false,\"id\":\"evo-postman-01\"},\"pushName\":\"João Silva\",\"message\":{\"conversation\":\"Quando vocês atendem?\"},\"messageType\":\"conversation\",\"messageTimestamp\":1677234567},\"destination\":\"5511999999999@s.whatsapp.net\"}"
+        }
+      }
+    },
+    {
+      "name": "Z-API — POST webhook",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/webhooks/zapi",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"instanceId\":\"INSTANCE\",\"messageId\":\"zap-postman-01\",\"phone\":\"5511988888888\",\"fromMe\":false,\"momment\":1677234567000,\"status\":\"RECEIVED\",\"chatName\":\"João Silva\",\"senderName\":\"João Silva\",\"type\":\"ReceivedCallback\",\"text\":{\"message\":\"Quero comprar agora\"}}"
+        }
+      }
+    },
+    {
+      "name": "Fake — POST webhook (extensibilidade)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/webhooks/fake",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"id\":\"fake-postman-01\",\"sender\":\"5511988888888\",\"senderName\":\"Fake Demo\",\"message\":\"proving extensibility\",\"sentAt\":1677234567}"
+        },
+        "description": "Provedor didático para mostrar que adicionar provedor não exige alteração do core. Ver docs/adding-a-provider.md."
+      }
+    },
+    {
+      "name": "Provider desconhecido → 404",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/webhooks/telegram",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"any\":\"payload\"}"
+        },
+        "description": "Esperado: 404 + UnknownProviderError + linha em dead_letters com provider_id='telegram'."
+      }
+    },
+    {
+      "name": "Payload malformado → 400",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/webhooks/meta",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"nonsense\":true}"
+        },
+        "description": "Esperado: 400 + MalformedWebhookError + linha em dead_letters."
+      }
+    }
+  ]
+}
