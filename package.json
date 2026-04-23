@@ -1,0 +1,35 @@
+{
+  "name": "whatsapp-webhook-normalizer",
+  "version": "0.1.0",
+  "description": "Unified ingestion layer that normalizes webhooks from multiple WhatsApp providers (Meta Cloud API, Evolution API, Z-API) into a single internal format.",
+  "main": "dist/http/server.js",
+  "scripts": {
+    "dev": "tsx watch src/http/server.ts",
+    "build": "tsc",
+    "start": "node dist/http/server.js",
+    "test": "vitest",
+    "migrate": "tsx src/db/migrate.ts"
+  },
+  "keywords": [
+    "whatsapp",
+    "webhook",
+    "normalization",
+    "adapter-pattern",
+    "typescript"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "pg": "^8.20.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.6.0",
+    "@types/pg": "^8.20.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3"
+  }
+}
