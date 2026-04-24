@@ -18,16 +18,6 @@ export class UnknownProviderError extends Error {
   }
 }
 
-export class ProcessingError extends Error {
-  readonly providerId: string;
-
-  constructor(providerId: string, message: string, cause?: unknown) {
-    super(message, { cause });
-    this.name = 'ProcessingError';
-    this.providerId = providerId;
-  }
-}
-
 export class SignatureVerificationError extends Error {
   readonly providerId: string;
 
