@@ -29,6 +29,7 @@ Camada de ingestão unificada que recebe webhooks de múltiplos provedores de Wh
 - [x] Diagrama de fluxo (Mermaid)
 - [x] Testes unitários (vitest)
 - [x] Implementação completa de LLM
+- [x] Teste com provedor real (Evolution API em Docker)
 
 **Extras não pedidos**
 - HMAC-SHA256 + verify-token da Meta
